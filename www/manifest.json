@@ -1,0 +1,14 @@
+{
+  "name": "Billar Online",
+  "short_name": "Billar",
+  "description": "Billar bola 8 online para dos jugadores",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#1b2430",
+  "theme_color": "#1b2430",
+  "icons": [
+    { "src": "icons/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }
+  ]
+}
