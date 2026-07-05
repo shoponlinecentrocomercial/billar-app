@@ -1,5 +1,5 @@
 {
-  "name": "com.symphoniertech.compass",
+  "name": "com.symphoniertech.billar",
   "version": "1.0.0",
   "scripts": {
     "build": "echo 'No build system needed'"
