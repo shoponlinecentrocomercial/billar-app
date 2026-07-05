@@ -1,0 +1,6 @@
+{
+  "appId": "com.symphoniertech.midway",
+  "appName": "Midway Gunner",
+  "webDir": "www",
+  "bundledWebRuntime": false
+}
