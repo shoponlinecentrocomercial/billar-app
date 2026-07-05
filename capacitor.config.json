@@ -1,6 +1,6 @@
 {
-  "appId": "com.symphoniertech.midway",
-  "appName": "Midway Gunner",
+  "appId": "com.symphoniertech.billar",
+  "appName": "Oldie Billar",
   "webDir": "www",
   "bundledWebRuntime": false
 }
