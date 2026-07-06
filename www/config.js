@@ -8,7 +8,7 @@
 // página se carga desde un origen local (https://localhost) y no hay "mismo
 // origen" al que conectar, así que hay que fijar aquí la URL real del
 // servidor de partidas, por ejemplo:
-  window.BILLAR_SERVER_URL = 'wss://tacobooks.com:2087';
+  window.BILLAR_SERVER_URL = 'https://tacobooks.com:2087';
 //window.BILLAR_SERVER_URL = null;
 
 // Igual que arriba pero para el enlace de invitación que se comparte en el
