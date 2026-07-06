@@ -2,5 +2,8 @@
   "appId": "com.symphoniertech.billar",
   "appName": "Oldie Billar",
   "webDir": "www",
-  "bundledWebRuntime": false
+  "bundledWebRuntime": false,
+  "server": {
+    "allowNavigation": ["tacobooks.com"]
+  }
 }
