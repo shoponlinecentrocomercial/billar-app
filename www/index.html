@@ -21,6 +21,11 @@
     <h1>🎱 Billar Online</h1>
     <p class="sub">Bola 8 para dos jugadores</p>
     <input id="nameInput" type="text" maxlength="16" placeholder="Tu nombre" autocomplete="off">
+    <div class="cosmetics">
+      <div class="cosmField"><label>Personaje</label><div id="charPicker" class="pickerGrid"></div></div>
+      <div class="cosmField"><label>Taco</label><div id="cuePicker" class="pickerGrid"></div></div>
+      <div class="cosmField"><label>Paño</label><div id="feltPicker" class="pickerGrid"></div></div>
+    </div>
     <button id="createBtn" class="primary">Crear mesa</button>
     <div class="joinRow">
       <input id="codeInput" type="text" maxlength="4" placeholder="CÓDIGO" autocomplete="off">
@@ -32,19 +37,26 @@
 
 <div id="game" class="hidden">
   <header id="hud">
+    <button id="panicBtn" title="Pánico">📊</button>
     <div class="player" id="p0">
-      <span class="pname">—</span>
-      <span class="pgroup"></span>
-      <div class="tray"></div>
+      <canvas class="avatar" width="40" height="40"></canvas>
+      <div class="pinfo">
+        <span class="pname">—</span>
+        <span class="pgroup"></span>
+        <div class="tray"></div>
+      </div>
     </div>
     <div id="center">
       <div id="roomTag">Mesa: <b id="roomCode">—</b></div>
       <div id="status">Esperando rival…</div>
     </div>
     <div class="player" id="p1">
-      <span class="pname">—</span>
-      <span class="pgroup"></span>
-      <div class="tray"></div>
+      <canvas class="avatar" width="40" height="40"></canvas>
+      <div class="pinfo">
+        <span class="pname">—</span>
+        <span class="pgroup"></span>
+        <div class="tray"></div>
+      </div>
     </div>
   </header>
 
@@ -52,12 +64,14 @@
     <canvas id="table" width="1092" height="592"></canvas>
     <div id="overMsg" class="hidden">
       <div id="overText"></div>
+      <div id="trophyRow" class="hidden"></div>
       <button id="rematchBtn" class="primary">Revancha</button>
     </div>
   </div>
 
   <div id="bottom">
     <div id="powerWrap"><div id="powerBar"></div></div>
+    <button id="tomatoBtn" class="tomatoBtn">🍅 Tomatazo</button>
     <div id="chat">
       <div id="chatLog"></div>
       <form id="chatForm">
@@ -68,7 +82,16 @@
   </div>
 </div>
 
+<div id="panicOverlay" class="hidden">
+  <div class="pnc-ribbon">
+    <div class="pnc-tabs">Archivo&nbsp;&nbsp;Inicio&nbsp;&nbsp;Insertar&nbsp;&nbsp;Disposición de página&nbsp;&nbsp;Fórmulas&nbsp;&nbsp;Datos&nbsp;&nbsp;Revisar&nbsp;&nbsp;Vista</div>
+  </div>
+  <div class="pnc-formulabar"><span id="pncName">B4</span><span class="pnc-fx">fx</span><span id="pncFormula"></span></div>
+  <div class="pnc-gridwrap"><table id="pncGrid"></table></div>
+</div>
+
 <script src="shared/physics.js"></script>
+<script src="shared/cosmetics.js"></script>
 <script src="config.js"></script>
 <script src="client.js"></script>
 </body>
