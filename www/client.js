@@ -684,6 +684,11 @@ function frame(ts) {
   const dt = Math.min(0.05, (ts - lastFrame) / 1000 || 0);
   lastFrame = ts;
 
+  // En el lobby (mesa oculta) o en segundo plano no hay nada que animar.
+  // Redibujar la mesa igualmente saturaba el hilo principal en móviles
+  // modestos: hasta teclear el nombre iba a tirones dentro de la app.
+  if (document.hidden || $('game').classList.contains('hidden')) return;
+
   effects.forEach(fx => { fx.t += dt; });
   effects = effects.filter(fx => fx.t < fx.dur);
   if (shakeTimer > 0) shakeTimer = Math.max(0, shakeTimer - dt);
@@ -744,60 +749,91 @@ requestAnimationFrame(frame);
 
 // ---------------------------------------------------------------- dibujo
 
+// El fondo de la mesa (madera, paño, diamantes, troneras) es estático:
+// regenerar sus gradientes en cada frame era, con diferencia, lo más caro
+// del bucle de render en móviles modestos. Se dibuja una vez en un canvas
+// aparte y solo se reconstruye si cambia el paño (que decide el asiento 0).
+let bgCanvas = null;
+let bgFeltIdx = -1;
+function tableBackground() {
+  const feltIdx = (cosmetics[0] && cosmetics[0].felt) || 0;
+  if (bgCanvas && bgFeltIdx === feltIdx) return bgCanvas;
+  bgFeltIdx = feltIdx;
+  if (!bgCanvas) {
+    bgCanvas = document.createElement('canvas');
+    bgCanvas.width = CANVAS_W * DPR;
+    bgCanvas.height = CANVAS_H * DPR;
+  }
+  const c = bgCanvas.getContext('2d');
+  c.setTransform(DPR, 0, 0, DPR, 0, 0);
+  c.clearRect(0, 0, CANVAS_W, CANVAS_H);
+
+  // Marco de madera
+  roundRectOn(c, 0, 0, CANVAS_W, CANVAS_H, 18);
+  const wood = c.createLinearGradient(0, 0, 0, CANVAS_H);
+  wood.addColorStop(0, '#7a4a24');
+  wood.addColorStop(1, '#5a3416');
+  c.fillStyle = wood;
+  c.fill();
+
+  c.save();
+  c.translate(M, M);
+  // El tapete es un elemento compartido de la mesa: manda siempre el
+  // asiento 0 (quien la creó), no la elección personal de cada jugador.
+  const feltDef0 = Cosmetics.FELTS[feltIdx];
+  c.fillStyle = feltDef0.base;
+  c.fillRect(-8, -8, Physics.W + 16, Physics.H + 16);
+  const felt = c.createRadialGradient(
+    Physics.W / 2, Physics.H / 2, 100, Physics.W / 2, Physics.H / 2, 700);
+  felt.addColorStop(0, 'rgba(255,255,255,.06)');
+  felt.addColorStop(1, 'rgba(0,0,0,.18)');
+  c.fillStyle = felt;
+  c.fillRect(-8, -8, Physics.W + 16, Physics.H + 16);
+
+  // Marcas de mosaico (diamantes) en la madera
+  c.fillStyle = '#e8d9b0';
+  const dotOn = (x, y, r) => { c.beginPath(); c.arc(x, y, r, 0, Math.PI * 2); c.fill(); };
+  for (let i = 1; i <= 7; i++) {
+    if (i === 4) continue;
+    dotOn(i * Physics.W / 8, -M / 2 - 4, 3.5);
+    dotOn(i * Physics.W / 8, Physics.H + M / 2 + 4, 3.5);
+  }
+  for (let i = 1; i <= 3; i++) {
+    dotOn(-M / 2 - 4, i * Physics.H / 4, 3.5);
+    dotOn(Physics.W + M / 2 + 4, i * Physics.H / 4, 3.5);
+  }
+
+  // Troneras
+  for (const p of Physics.POCKETS) {
+    c.beginPath();
+    c.arc(p.x, p.y, p.r, 0, Math.PI * 2);
+    c.fillStyle = '#0a0a0a';
+    c.fill();
+    c.strokeStyle = 'rgba(0,0,0,.5)';
+    c.lineWidth = 4;
+    c.stroke();
+  }
+  c.restore();
+  return bgCanvas;
+}
+
 function draw() {
   ctx.clearRect(0, 0, CANVAS_W, CANVAS_H);
 
-  // Marco de madera
-  roundRect(0, 0, CANVAS_W, CANVAS_H, 18);
-  const wood = ctx.createLinearGradient(0, 0, 0, CANVAS_H);
-  wood.addColorStop(0, '#7a4a24');
-  wood.addColorStop(1, '#5a3416');
-  ctx.fillStyle = wood;
-  ctx.fill();
-
-  // Paño
   let shakeX = 0, shakeY = 0;
   if (shakeTimer > 0) {
     const k = shakeTimer / shakeTotal;
     shakeX = (Math.random() * 2 - 1) * shakeMag * k;
     shakeY = (Math.random() * 2 - 1) * shakeMag * k;
   }
+
+  // La sacudida es "de cámara": ahora desplaza la imagen completa de la mesa
+  // (madera incluida) en vez de solo el interior, que es lo que permite usar
+  // el fondo cacheado también durante la sacudida.
+  ctx.drawImage(tableBackground(), shakeX, shakeY, CANVAS_W, CANVAS_H);
+
   ctx.save();
   ctx.translate(M + shakeX, M + shakeY);
-  // El tapete es un elemento compartido de la mesa: manda siempre el
-  // asiento 0 (quien la creó), no la elección personal de cada jugador.
-  const feltDef0 = Cosmetics.FELTS[(cosmetics[0] && cosmetics[0].felt) || 0];
-  ctx.fillStyle = feltDef0.base;
-  ctx.fillRect(-8, -8, Physics.W + 16, Physics.H + 16);
-  const felt = ctx.createRadialGradient(
-    Physics.W / 2, Physics.H / 2, 100, Physics.W / 2, Physics.H / 2, 700);
-  felt.addColorStop(0, 'rgba(255,255,255,.06)');
-  felt.addColorStop(1, 'rgba(0,0,0,.18)');
-  ctx.fillStyle = felt;
-  ctx.fillRect(-8, -8, Physics.W + 16, Physics.H + 16);
-
-  // Marcas de mosaico (diamantes) en la madera
-  ctx.fillStyle = '#e8d9b0';
-  for (let i = 1; i <= 7; i++) {
-    if (i === 4) continue;
-    dot(i * Physics.W / 8, -M / 2 - 4, 3.5);
-    dot(i * Physics.W / 8, Physics.H + M / 2 + 4, 3.5);
-  }
-  for (let i = 1; i <= 3; i++) {
-    dot(-M / 2 - 4, i * Physics.H / 4, 3.5);
-    dot(Physics.W + M / 2 + 4, i * Physics.H / 4, 3.5);
-  }
-
-  // Troneras
-  for (const p of Physics.POCKETS) {
-    ctx.beginPath();
-    ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
-    ctx.fillStyle = '#0a0a0a';
-    ctx.fill();
-    ctx.strokeStyle = 'rgba(0,0,0,.5)';
-    ctx.lineWidth = 4;
-    ctx.stroke();
-  }
 
   // Guías de puntería
   if (!animating && state && state.phase === 'aim') {
@@ -864,88 +900,108 @@ function drawAim(cue, angle, mine, cueDef) {
   // Taco: el propio con retroceso según la potencia; el del rival con un
   // retroceso fijo (no se conoce su potencia hasta que suelta el tiro) y
   // más translúcido para no competir visualmente con el propio.
+  // Se dibuja desde un sprite pre-renderizado y rotado: el shadowBlur del
+  // glow y el degradado eran demasiado caros para repetirlos cada frame.
   const pull = mine ? 14 + power * 90 : 30;
-  const bx = cue.x - Math.cos(angle) * pull;
-  const by = cue.y - Math.sin(angle) * pull;
-  const tx = cue.x - Math.cos(angle) * (pull + 260);
-  const ty = cue.y - Math.sin(angle) * (pull + 260);
   ctx.save();
   ctx.globalAlpha = mine ? 1 : 0.4;
-  if (cueDef.glow) { ctx.shadowColor = cueDef.glow; ctx.shadowBlur = 14; }
-  const g = ctx.createLinearGradient(bx, by, tx, ty);
-  g.addColorStop(0, cueDef.colors[0]);
-  g.addColorStop(0.7, cueDef.colors[1]);
-  g.addColorStop(1, cueDef.colors[2]);
-  ctx.strokeStyle = g;
-  ctx.lineWidth = 7;
-  ctx.lineCap = 'round';
-  ctx.beginPath();
-  ctx.moveTo(bx, by);
-  ctx.lineTo(tx, ty);
-  ctx.stroke();
+  ctx.translate(cue.x, cue.y);
+  ctx.rotate(angle + Math.PI); // el taco se extiende en sentido opuesto al tiro
+  ctx.drawImage(cueSprite(cueDef), pull - CUE_PAD, -CUE_PAD, CUE_LEN + CUE_PAD * 2, CUE_PAD * 2);
   ctx.restore();
   ctx.restore();
 }
 
-function drawBall(x, y, id) {
+const CUE_LEN = 260;
+const CUE_PAD = 22; // hueco para el glow (shadowBlur 14) y el remate redondeado
+const cueSprites = new Map();
+function cueSprite(cueDef) {
+  let s = cueSprites.get(cueDef);
+  if (s) return s;
+  s = document.createElement('canvas');
+  s.width = (CUE_LEN + CUE_PAD * 2) * DPR;
+  s.height = CUE_PAD * 2 * DPR;
+  const c = s.getContext('2d');
+  c.setTransform(DPR, 0, 0, DPR, 0, 0);
+  if (cueDef.glow) { c.shadowColor = cueDef.glow; c.shadowBlur = 14; }
+  const g = c.createLinearGradient(CUE_PAD, 0, CUE_PAD + CUE_LEN, 0);
+  g.addColorStop(0, cueDef.colors[0]);
+  g.addColorStop(0.7, cueDef.colors[1]);
+  g.addColorStop(1, cueDef.colors[2]);
+  c.strokeStyle = g;
+  c.lineWidth = 7;
+  c.lineCap = 'round';
+  c.beginPath();
+  c.moveTo(CUE_PAD, CUE_PAD);
+  c.lineTo(CUE_PAD + CUE_LEN, CUE_PAD);
+  c.stroke();
+  cueSprites.set(cueDef, s);
+  return s;
+}
+
+// Cada bola se pre-renderiza una sola vez en un sprite: dibujarla a mano
+// implicaba un clip y un fillText por bola y por frame, y el render de texto
+// era lo más caro que quedaba en el bucle tras cachear el fondo de la mesa.
+const ballSprites = new Map();
+function ballSprite(id) {
+  let s = ballSprites.get(id);
+  if (s) return s;
   const R = Physics.BALL_R;
-  ctx.save();
+  const PAD = R + 4; // margen para la sombra (desplazada +2,+3)
+  s = document.createElement('canvas');
+  s.width = PAD * 2 * DPR;
+  s.height = PAD * 2 * DPR;
+  const c = s.getContext('2d');
+  c.setTransform(DPR, 0, 0, DPR, 0, 0);
+  const x = PAD, y = PAD;
+  c.save();
 
   // Sombra
-  ctx.beginPath();
-  ctx.arc(x + 2, y + 3, R, 0, Math.PI * 2);
-  ctx.fillStyle = 'rgba(0,0,0,.3)';
-  ctx.fill();
+  c.beginPath();
+  c.arc(x + 2, y + 3, R, 0, Math.PI * 2);
+  c.fillStyle = 'rgba(0,0,0,.3)';
+  c.fill();
 
   // Cuerpo
-  ctx.beginPath();
-  ctx.arc(x, y, R, 0, Math.PI * 2);
-  ctx.fillStyle = id >= 9 ? '#f5f1e8' : BALL_COLORS[id];
-  ctx.fill();
+  c.beginPath();
+  c.arc(x, y, R, 0, Math.PI * 2);
+  c.fillStyle = id >= 9 ? '#f5f1e8' : BALL_COLORS[id];
+  c.fill();
 
   // Banda de las rayadas
   if (id >= 9) {
-    ctx.clip();
-    ctx.fillStyle = BALL_COLORS[id];
-    ctx.fillRect(x - R, y - R * 0.55, R * 2, R * 1.1);
+    c.clip();
+    c.fillStyle = BALL_COLORS[id];
+    c.fillRect(x - R, y - R * 0.55, R * 2, R * 1.1);
   }
 
   // Círculo del número
   if (id > 0) {
-    ctx.beginPath();
-    ctx.arc(x, y, R * 0.52, 0, Math.PI * 2);
-    ctx.fillStyle = '#f5f1e8';
-    ctx.fill();
-    ctx.fillStyle = '#111';
-    ctx.font = `bold ${Math.round(R * 0.75)}px Arial`;
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-    ctx.fillText(String(id), x, y + 0.5);
+    c.beginPath();
+    c.arc(x, y, R * 0.52, 0, Math.PI * 2);
+    c.fillStyle = '#f5f1e8';
+    c.fill();
+    c.fillStyle = '#111';
+    c.font = `bold ${Math.round(R * 0.75)}px Arial`;
+    c.textAlign = 'center';
+    c.textBaseline = 'middle';
+    c.fillText(String(id), x, y + 0.5);
   }
 
   // Brillo
-  ctx.beginPath();
-  ctx.arc(x - R * 0.35, y - R * 0.4, R * 0.32, 0, Math.PI * 2);
-  ctx.fillStyle = 'rgba(255,255,255,.45)';
-  ctx.fill();
+  c.beginPath();
+  c.arc(x - R * 0.35, y - R * 0.4, R * 0.32, 0, Math.PI * 2);
+  c.fillStyle = 'rgba(255,255,255,.45)';
+  c.fill();
 
-  ctx.restore();
+  c.restore();
+  ballSprites.set(id, s);
+  return s;
 }
 
-function dot(x, y, r) {
-  ctx.beginPath();
-  ctx.arc(x, y, r, 0, Math.PI * 2);
-  ctx.fill();
-}
-
-function roundRect(x, y, w, h, r) {
-  ctx.beginPath();
-  ctx.moveTo(x + r, y);
-  ctx.arcTo(x + w, y, x + w, y + h, r);
-  ctx.arcTo(x + w, y + h, x, y + h, r);
-  ctx.arcTo(x, y + h, x, y, r);
-  ctx.arcTo(x, y, x + w, y, r);
-  ctx.closePath();
+function drawBall(x, y, id) {
+  const PAD = Physics.BALL_R + 4;
+  ctx.drawImage(ballSprite(id), x - PAD, y - PAD, PAD * 2, PAD * 2);
 }
 
 // ---------------------------------------------------------------- efectos
